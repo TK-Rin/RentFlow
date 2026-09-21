@@ -1,5 +1,8 @@
 fastapi[standard]
 uvicorn
 databases[asyncpg]
-pydantic
+pydantic[email]
 bcrypt
+pyjwt
+pytest
+pytest-asyncio

@@ -1,22 +1,59 @@
-# ACP App Boilerplate
+# RentFlow
 
-Minimal full-stack starter for the Advanced Computer Programming class, Department of Robotics and AI Engineering, KMITL.
+Rent and utility billing for landlords who own 3-50 units and are still
+running the business from a notebook, a calculator, and a wall of LINE
+chats. RentFlow turns a monthly meter reading into an itemised invoice
+with a PromptPay QR code, tracks who has paid, and shows the landlord
+(and, separately, the business behind RentFlow itself) one dashboard
+instead of a dozen scattered records.
+
+Built for the Advanced Computer Programming Mini Project, Department of
+Robotics and AI Engineering, KMITL, on top of the
+[acpapp boilerplate](https://github.com/syanyong/acpapp).
+
+**Live demo:** _add the deployed URL here before the Week 5 submission_
+**Design document:** _add the design document link here_
+
+## Team
+
+| Name | Student ID | Role |
+| --- | --- | --- |
+| _TBD_ | _TBD_ | Team lead / Backend |
+| _TBD_ | _TBD_ | Backend / Database |
+| _TBD_ | _TBD_ | Frontend |
+| _TBD_ | _TBD_ | Frontend / Design |
+
+## What it does
+
+- **Portfolio registry** - properties, units, tenants, and leases, scoped
+  per landlord.
+- **Meter reading to invoice** - record a water/electric reading and the
+  billing engine calculates consumption, prorates rent for mid-period
+  move-ins, and applies a late fee to any prior unpaid balance.
+- **PromptPay checkout** - a real EMVCo-format QR code on every invoice
+  and on the Pro-plan upgrade flow.
+- **Free / Pro tiers** - Free is capped at 3 units and 1 property with
+  manual invoicing; Pro unlocks unlimited units and one-click bulk
+  billing. Enforced server-side, not just hidden in the UI.
+- **Admin analytics** - MRR/ARR, conversion rate, occupancy, and rent
+  volume processed, admin-role only.
+
+See the [design document](#) for the full requirements, schema, and
+business rationale.
 
 ## Stack
 
-- Next.js Pages Router
-- React
-- shadcn-style UI components with Tailwind CSS
-- Native `fetch()` for API calls
-- FastAPI
-- PostgreSQL
-- Docker Compose
+- Next.js (Pages Router) + shadcn-style components + Tailwind CSS
+- FastAPI + [`databases`](https://github.com/encode/databases) (async,
+  raw SQL) + PostgreSQL
+- JWT authentication, bcrypt password hashing
+- Docker Compose for local development
 
-## Run
+## Run locally
 
 ```bash
-git clone https://github.com/syanyong/acpapp.git
-cd acpapp
+git clone <this-repo-url>
+cd "Mini Project"
 docker compose up --build
 ```
 
@@ -26,60 +63,41 @@ Open:
 - FastAPI: `http://localhost:8000`
 - FastAPI docs: `http://localhost:8000/docs`
 
-## Demo login
+### Demo accounts
 
-- Email: `demo@example.com`
-- Password: `password`
+| Role | Email | Password |
+| --- | --- | --- |
+| Landlord | `demo@example.com` | `password` |
+| Admin | `admin@rentflow.app` | `password` |
 
-The demo password is stored as a bcrypt hash in PostgreSQL.
+### Running the backend outside Docker
 
-## Pages
-
-- `/` — static landing page with example user cards
-- `/login` — login form using native `fetch()`
-
-## API
-
-### POST `/api/login`
-
-Request:
-
-```json
-{
-  "email": "demo@example.com",
-  "password": "password"
-}
+```bash
+cd backend-api
+python -m venv .venv && .venv/Scripts/activate  # or source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # then point POSTGRES_HOST at your own Postgres
+uvicorn app:app --reload
 ```
 
-Response:
+### Running the frontend outside Docker
 
-```json
-{
-  "email": "demo@example.com",
-  "token": "..."
-}
+```bash
+cd nextjs
+npm install
+BACKEND_URL=http://127.0.0.1:8000 npm run dev
 ```
 
-Next.js rewrites `/api/*` to the FastAPI container, so frontend code can call relative URLs such as:
+### Backend tests
 
-```js
-const response = await fetch("/api/login", { ... })
+The billing engine (proration, late fees, meter-rollback rejection,
+partial payments) is pure and unit tested independently of the database:
+
+```bash
+cd backend-api
+pip install -r requirements.txt
+pytest tests/ -v
 ```
-
-## Database
-
-The starter intentionally has only one table:
-
-```sql
-users (
-  email      primary key,
-  password   not null,
-  token,
-  create_at  not null
-)
-```
-
-The `password` column stores a bcrypt hash, not plaintext.
 
 ## Project structure
 
@@ -87,22 +105,32 @@ The `password` column stores a bcrypt hash, not plaintext.
 .
 ├── docker-compose.yaml
 ├── backend-api/
-│   ├── app.py
-│   ├── database.py
-│   ├── routes/
-│   │   └── auth.py
-│   └── requirements.txt
+│   ├── app.py                 # FastAPI app, router registration
+│   ├── config.py               # env vars, tier limits, late fee rate
+│   ├── database.py             # connection + schema + user queries
+│   ├── security.py             # JWT auth, RBAC/tier dependencies
+│   ├── services/
+│   │   ├── billing.py          # the billing engine (pure functions)
+│   │   └── promptpay.py        # EMVCo PromptPay QR payload generator
+│   ├── routes/                 # one module per resource
+│   └── tests/test_billing.py
 └── nextjs/
-    ├── components/ui/
-    ├── lib/utils.js
-    ├── pages/
-    │   ├── _app.js
-    │   ├── index.js
-    │   └── login.js
-    ├── styles/globals.css
-    ├── components.json
-    ├── tailwind.config.js
-    └── package.json
+    ├── components/ui/          # hand-rolled shadcn-style primitives
+    ├── components/app-shell.js # auth-gated layout + nav for app pages
+    ├── lib/api.js               # fetch wrapper, token storage
+    └── pages/
+        ├── index.js             # public landing page
+        ├── login.js / register.js
+        ├── app.js               # main workspace (properties/units/.../invoices)
+        ├── pricing.js           # plans + simulated PromptPay checkout
+        ├── account.js           # profile, tier, billing history
+        └── admin.js             # admin-only business analytics
 ```
 
-This repository is intentionally small. Students can add CRUD, authorization, state management, and additional tables later as course exercises.
+## Known limitations (by design, for this project's scope)
+
+- PromptPay QR codes are generated in the real payload format, but
+  *payment confirmation* is a mock endpoint standing in for a bank
+  webhook - stated explicitly in the design document, Section 6.
+- LINE notifications and PDF export are Pro-tier features planned for
+  Week 3-4; the checkpoint above tracks what is wired so far.

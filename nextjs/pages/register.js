@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toaster";
 import { apiFetch, saveSession } from "@/lib/api";
 
-export default function Login() {
+export default function Register() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState("demo@example.com");
-  const [password, setPassword] = useState("password");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event) {
@@ -21,12 +22,15 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const data = await apiFetch("/auth/login", { method: "POST", body: { email, password } });
+      const data = await apiFetch("/auth/register", {
+        method: "POST",
+        body: { full_name: fullName, email, password },
+      });
       saveSession(data.token, data.user);
-      toast({ title: "Welcome back", description: `Signed in as ${data.user.email}` });
-      router.push(data.user.role === "admin" ? "/admin" : "/app");
+      toast({ title: "Account created", description: "Welcome to RentFlow." });
+      router.push("/app");
     } catch (err) {
-      toast({ title: "Login failed", description: err.message, variant: "destructive" });
+      toast({ title: "Could not create account", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -36,13 +40,22 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Log in to RentFlow</CardTitle>
-          <CardDescription>
-            Demo landlord: demo@example.com / password. Demo admin: admin@rentflow.app / password.
-          </CardDescription>
+          <CardTitle>Create your RentFlow account</CardTitle>
+          <CardDescription>Starts on the Free plan - up to 3 units, no card required.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full name</Label>
+              <Input
+                id="fullName"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+                autoComplete="name"
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -60,27 +73,25 @@ export default function Login() {
               <Input
                 id="password"
                 type="password"
+                minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
               />
+              <p className="text-xs text-muted-foreground">At least 8 characters.</p>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Logging in..." : "Log in"}
+              {loading ? "Creating account..." : "Create account"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">
-              No account yet?{" "}
-              <Link href="/register" className="font-medium text-foreground underline">
-                Sign up
+              Already have an account?{" "}
+              <Link href="/login" className="font-medium text-foreground underline">
+                Log in
               </Link>
             </p>
-
-            <Button asChild variant="outline" className="w-full">
-              <Link href="/">Back to landing page</Link>
-            </Button>
           </form>
         </CardContent>
       </Card>
