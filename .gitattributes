@@ -1,0 +1,10 @@
+# Never line-ending-convert binary files, regardless of a contributor's
+# local autocrlf setting.
+*.pdf   -text binary
+*.png   -text binary
+*.jpg   -text binary
+*.jpeg  -text binary
+*.ico   -text binary
+*.ttf   -text binary
+*.woff  -text binary
+*.woff2 -text binary
