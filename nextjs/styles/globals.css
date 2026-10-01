@@ -4,20 +4,27 @@
 
 @layer base {
   :root {
+    /* Orange / white / black brand palette. */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 24 10% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --card-foreground: 24 10% 10%;
+    --primary: 20 91% 48%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 30 20% 95%;
+    --secondary-foreground: 24 10% 10%;
+    --muted: 30 20% 95%;
+    --muted-foreground: 25 10% 40%;
+    --border: 30 15% 88%;
+    --input: 30 15% 88%;
+    --ring: 20 91% 48%;
+    --radius: 0.75rem;
+
+    /* Extra brand tokens for the "interesting" bits - not part of the
+       shadcn set, used directly in a few hand-styled sections. */
+    --brand-black: 24 10% 8%;
+    --brand-orange: 20 91% 48%;
+    --brand-orange-soft: 24 95% 94%;
   }
 
   * {

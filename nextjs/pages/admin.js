@@ -77,7 +77,7 @@ function AdminBody() {
                 <XAxis dataKey="month" fontSize={12} />
                 <YAxis fontSize={12} />
                 <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="hsl(222.2 47.4% 11.2%)" strokeWidth={2} />
+                <Line type="monotone" dataKey="value" stroke="hsl(20 91% 48%)" strokeWidth={2.5} />
               </LineChart>
             </ResponsiveContainer>
             {stats.mrr_trend.length === 0 && (
@@ -97,7 +97,7 @@ function AdminBody() {
                 <XAxis dataKey="tier" fontSize={12} />
                 <YAxis fontSize={12} allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="count" fill="hsl(222.2 47.4% 11.2%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="hsl(24 10% 10%)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
