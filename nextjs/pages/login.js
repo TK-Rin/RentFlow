@@ -33,7 +33,7 @@ export default function Login() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <main className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Log in to RentFlow</CardTitle>
@@ -48,6 +48,8 @@ export default function Login() {
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"

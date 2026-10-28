@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,29 @@ import { apiFetch } from "@/lib/api";
 function currentPeriod() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatBaht(value) {
+  const amount = Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `฿${amount}`;
+}
+
+// Tab values for /app?tab=... (the phone bottom nav links here).
+const TAB_VALUES = ["properties", "units", "tenants", "leases", "meters", "invoices"];
+
+// Live "15 units × ฿18.00 = ฿270.00" line under a meter input. Returns null
+// until there is a previous reading to compare against.
+function usageLine(current, previous, rate) {
+  if (previous === undefined || previous === null || current === "") return null;
+  const used = Number(current) - Number(previous);
+  if (used < 0) return { error: true, text: `Lower than the last reading (${previous}).` };
+  return {
+    error: false,
+    text: `${used} units × ${formatBaht(rate)} = ${formatBaht(used * Number(rate || 0))}`,
+  };
 }
 
 // --- Properties ------------------------------------------------------------
@@ -527,6 +551,13 @@ function MetersPanel({ units }) {
     if (!unitId && units.length > 0) setUnitId(String(units[0].id));
   }, [units, unitId]);
 
+  const unit = units.find((u) => String(u.id) === unitId);
+  const previous = readings
+    .filter((r) => r.period < period)
+    .sort((a, b) => b.period.localeCompare(a.period))[0];
+  const waterLine = unit && previous ? usageLine(waterCurr, previous.water_curr, unit.water_rate) : null;
+  const elecLine = unit && previous ? usageLine(elecCurr, previous.elec_curr, unit.elec_rate) : null;
+
   async function loadReadings(id) {
     if (!id) return;
     setReadings(await apiFetch(`/units/${id}/meter-readings`));
@@ -632,6 +663,11 @@ function MetersPanel({ units }) {
                 onChange={(e) => setWaterCurr(e.target.value)}
                 required
               />
+              {waterLine && (
+                <p className={`text-sm ${waterLine.error ? "text-red-600" : "text-muted-foreground"}`}>
+                  {waterLine.text}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label>Electric meter (current)</Label>
@@ -642,6 +678,11 @@ function MetersPanel({ units }) {
                 onChange={(e) => setElecCurr(e.target.value)}
                 required
               />
+              {elecLine && (
+                <p className={`text-sm ${elecLine.error ? "text-red-600" : "text-muted-foreground"}`}>
+                  {elecLine.text}
+                </p>
+              )}
             </div>
             <Button type="submit" className="w-full" disabled={submitting || !unitId}>
               Save reading
@@ -796,62 +837,110 @@ function InvoicesPanel({ leases, properties, user }) {
           <CardTitle>Invoices</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Period</TableHead>
-                <TableHead>Lease</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Record payment</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map((inv) => (
-                <TableRow key={inv.id}>
-                  <TableCell>{inv.period}</TableCell>
-                  <TableCell>#{inv.lease_id}</TableCell>
-                  <TableCell>{inv.total}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        inv.status === "paid" ? "success" : inv.status === "partial" ? "warning" : "secondary"
-                      }
-                    >
-                      {inv.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        className="h-8 w-24"
-                        placeholder="Amount"
-                        value={payAmounts[inv.id] || ""}
-                        onChange={(e) => setPayAmounts((prev) => ({ ...prev, [inv.id]: e.target.value }))}
-                        disabled={inv.status === "paid"}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={inv.status === "paid"}
-                        onClick={() => handlePay(inv.id)}
-                      >
-                        Pay
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {invoices.length === 0 && (
+          {/* Phones: one card per invoice. */}
+          <div className="space-y-3 md:hidden">
+            {invoices.map((inv) => (
+              <div key={inv.id} className="rounded-lg border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Lease #{inv.lease_id}</p>
+                    <p className="text-sm text-muted-foreground">{inv.period}</p>
+                  </div>
+                  <Badge
+                    variant={
+                      inv.status === "paid" ? "success" : inv.status === "partial" ? "warning" : "secondary"
+                    }
+                  >
+                    {inv.status}
+                  </Badge>
+                </div>
+                <p className="mt-3 text-2xl font-bold tracking-tight">{formatBaht(inv.total)}</p>
+                <div className="mt-3 flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    className="h-11 flex-1"
+                    placeholder="Amount"
+                    aria-label={`Payment amount for invoice ${inv.period}`}
+                    value={payAmounts[inv.id] || ""}
+                    onChange={(e) => setPayAmounts((prev) => ({ ...prev, [inv.id]: e.target.value }))}
+                    disabled={inv.status === "paid"}
+                  />
+                  <Button
+                    variant="outline"
+                    className="h-11 px-5"
+                    disabled={inv.status === "paid"}
+                    onClick={() => handlePay(inv.id)}
+                  >
+                    Pay
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {invoices.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">No invoices yet.</p>
+            )}
+          </div>
+
+          {/* Tablet and desktop: the original table. */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    No invoices yet.
-                  </TableCell>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Lease</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Record payment</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell>{inv.period}</TableCell>
+                    <TableCell>#{inv.lease_id}</TableCell>
+                    <TableCell>{inv.total}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          inv.status === "paid" ? "success" : inv.status === "partial" ? "warning" : "secondary"
+                        }
+                      >
+                        {inv.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          className="h-8 w-24"
+                          placeholder="Amount"
+                          value={payAmounts[inv.id] || ""}
+                          onChange={(e) => setPayAmounts((prev) => ({ ...prev, [inv.id]: e.target.value }))}
+                          disabled={inv.status === "paid"}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={inv.status === "paid"}
+                          onClick={() => handlePay(inv.id)}
+                        >
+                          Pay
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {invoices.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No invoices yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -874,6 +963,8 @@ function WorkspaceBody({ user }) {
   const [tenants, setTenants] = useState([]);
   const [leases, setLeases] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const router = useRouter();
+  const tab = TAB_VALUES.includes(router.query.tab) ? router.query.tab : "properties";
 
   async function refreshAll() {
     const [propertyRows, tenantRows, leaseRows] = await Promise.all([
@@ -911,15 +1002,19 @@ function WorkspaceBody({ user }) {
         </div>
       </div>
 
-      <Tabs defaultValue="properties">
-        <TabsList>
-          <TabsTrigger value="properties">Properties</TabsTrigger>
-          <TabsTrigger value="units">Units</TabsTrigger>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
-          <TabsTrigger value="leases">Leases</TabsTrigger>
-          <TabsTrigger value="meters">Meter readings</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-        </TabsList>
+      {/* key={tab} re-mounts the tabs when the phone bottom nav changes ?tab= */}
+      <Tabs key={tab} defaultValue={tab}>
+        {/* Scrolls sideways on phones instead of overflowing the page. */}
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+          <TabsList className="w-max">
+            <TabsTrigger value="properties">Properties</TabsTrigger>
+            <TabsTrigger value="units">Units</TabsTrigger>
+            <TabsTrigger value="tenants">Tenants</TabsTrigger>
+            <TabsTrigger value="leases">Leases</TabsTrigger>
+            <TabsTrigger value="meters">Meter readings</TabsTrigger>
+            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="properties">
           <PropertiesPanel properties={properties} onChanged={refreshAll} />
